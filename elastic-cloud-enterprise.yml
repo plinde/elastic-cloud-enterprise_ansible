@@ -1,0 +1,133 @@
+---
+- hosts: all
+  gather_facts: no
+  become: true
+
+  tasks:
+  - name: yum install xfsprogs kernel
+    yum:
+      name={{item}}
+      state=latest
+    with_items:
+     - kernel
+     - xfsprogs
+     - yum-plugin-versionlock
+
+  - name: create "{{ create_user }}" user
+    group: name="elastic" state="present"
+
+  - name: create "{{ create_user }}" user
+    user: name="elastic" shell=/bin/bash group="elastic"
+
+  ### volume mounting is handled by Vagrantfile
+  # - name: mkfs.xfs /dev/sdb1
+  #   filesystem: fstype=xfs dev=/dev/sdb1
+
+  # - name: mkdir /data
+    # file: state=directory path=/data owner=root group=root
+
+  # - name: mount up device by label on /data
+    # mount: name=/data src=/dev/sdb1 fstype=xfs state=mounted
+
+  - name: change ownership of mounted volume /data
+    file: path=/mnt/data state=directory owner=elastic group=elastic mode=0755 recurse=yes
+
+  - name: add cgroup_enable to /etc/default/grub
+    lineinfile:
+      dest: /etc/default/grub
+      regexp: "^GRUB_CMDLINE_LINUX="
+      # line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash video.use_native_backlight=1"'
+      line: 'GRUB_CMDLINE_LINUX="rd.lvm.lv=centos/root rd.lvm.lv=centos/swap crashkernel=auto rhgb quiet cgroup_enable=memory swapaccount=1"'
+    register: grubfile
+
+  - name: grub2-mkconfig if grubfile has changed
+    command: grub2-mkconfig -o /boot/grub2/grub.cfg
+    when: grubfile|changed
+
+  ### Tuning required for ElasticSearch
+  - name: sysctl vm.max_map_count=262144
+    sysctl:
+      name: vm.max_map_count
+      value: 262144
+      state: present
+
+  - name: sysctl net.ipv4.ip_forward=1
+    sysctl:
+      name: net.ipv4.ip_forward
+      value: 1
+      sysctl_set: yes
+
+  - name: /etc/security/limits.conf - nofile
+    pam_limits:
+      domain: "elastic"
+      limit_type: "{{ item }}"
+      limit_item: nofile
+      value: 1024000
+      use_max: yes
+    with_items:
+       - soft
+       - hard
+
+  - name: /etc/security/limits.conf - memlock
+    pam_limits:
+      domain: "elastic"
+      limit_type: "{{ item }}"
+      limit_item: memlock
+      value: 1024000
+      use_max: yes
+    with_items:
+       - soft
+       - hard
+
+  - name: /etc/security/limits.conf - nproc
+    pam_limits:
+      domain: "elastic"
+      limit_type: "{{ item }}"
+      limit_item: nproc
+      value: 1024000
+      use_max: yes
+    with_items:
+       - soft
+       - hard
+
+### specifying a 'local' yum mirror would be handy here
+  - name: enable docker repo via yum
+    yum_repository:
+      name: docker-repo
+      description: "Docker Repo for RHEL7"
+      baseurl: https://yum.dockerproject.org/repo/main/centos/7
+      enabled: yes
+      gpgcheck: yes
+      gpgkey: https://yum.dockerproject.org/gpg
+
+  ### install 1.11 as required by ECE
+  - name: yum install docker-engine-1.11.2
+    yum:
+      name=docker-engine-1.11.2
+      state=installed
+
+  ### pin the docker-engine version to 1.11
+  - name: yum version lock
+    command: sudo yum versionlock docker-engine
+
+  ### add our functional user to the docker group
+  - name: gpasswd -a ${USER} {{ add_to_group}}
+    user: name=elastic groups=docker append=yes
+
+  # - name: set Docker "Home" instead of /var/lib/docker on boot volume - hardcoded to '/app/docker'
+  #   lineinfile: dest=/lib/systemd/system/docker.service regexp='ExecStart=/usr/bin/dockerd' line='ExecStart=/usr/bin/dockerd -g /app/var-lib-docker' state=present backup=yes
+
+  ### Using a 'local' Docker registry mirror would speed things up (1GB+ pull)
+  # - name: set Docker regisry proxy
+  #   lineinfile:
+  #     dest: /lib/systemd/system/docker.service
+  #     regexp: 'ExecStart=/usr/bin/docker daemon -H fd://'
+  #     line: 'ExecStart=/usr/bin/docker --registry-mirror=http://192.168.1.101:5000 daemon -H fd://'
+  #     state: present
+  #     backup: yes
+
+  - name: service docker restart
+    service: name=docker state=started enabled=yes
+
+  - name: docker run hello-world
+    command: docker run hello-world
