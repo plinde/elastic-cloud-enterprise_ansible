@@ -5,6 +5,8 @@
 
 * Playbook tested on CentOS 7.1 for Elastic Cloud Enterprise 1.0.0-alpha4 with Ansible 2.2.
 
+* Simple Vagrantfile based on bento/centos-7.1 for local testing with Virtualbox.
+
 ##### Suggested usage
 ###### ansible.cfg:
 ```
