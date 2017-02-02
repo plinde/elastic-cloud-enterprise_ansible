@@ -41,7 +41,7 @@
     register: grubfile
 
   - name: grub2-mkconfig if grubfile has changed
-    command: grub2-mkconfig -o /boot/grub2/grub.cfg
+    command: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
     when: grubfile|changed
 
   ### Tuning required for ElasticSearch
