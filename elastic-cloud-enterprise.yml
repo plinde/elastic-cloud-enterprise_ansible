@@ -108,7 +108,7 @@
 
   ### pin the docker-engine version to 1.11
   - name: yum version lock
-    command: sudo yum versionlock docker-engine
+    command: yum versionlock docker-engine
 
   ### add our functional user to the docker group
   - name: gpasswd -a ${USER} {{ add_to_group}}
