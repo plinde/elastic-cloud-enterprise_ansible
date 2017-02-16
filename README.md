@@ -46,4 +46,7 @@ export PUBLIC_IP=$(ip address show  enp0s8 | grep 'inet ' | sed -e 's/^.*inet //
 wget https://download.elasticsearch.org/cloud/elastic-cloud-enterprise-installer.sh
 bash -x elastic-cloud-enterprise-installer.sh --host-storage-path /mnt/data --public-host-name ${PUBLIC_IP} --host-ip ${PUBLIC_IP} --debug
 
+### Docker 'nuke' if something goes wrong and you need to quickly wipe your containers
+# docker ps -a | awk '{print $1}' | xargs docker kill; docker ps -a | awk '{print $1}' | xargs docker rm
+
 ```
