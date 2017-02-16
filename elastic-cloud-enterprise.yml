@@ -126,8 +126,11 @@
   #     state: present
   #     backup: yes
 
+  - name: service docker enabled
+    service: name=docker enabled=yes
+
   - name: service docker restart
-    service: name=docker state=started enabled=yes
+    service: name=docker state=started enabled=yes daemon_reload=yes
 
   - name: docker run hello-world
     command: docker run hello-world

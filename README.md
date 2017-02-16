@@ -41,4 +41,9 @@ docker save docker.elastic.co/cloud-enterprise/elastic-cloud-enterprise:1.0.0-al
 # wget http://somehost:8080/docker.elastic.co_cloud-enterprise_elastic-cloud-enterprise:1.0.0-alpha4.tar
 
 docker load --input docker.elastic.co_cloud-enterprise_elastic-cloud-enterprise:1.0.0-alpha4.tar
+
+
+wget https://download.elasticsearch.org/cloud/elastic-cloud-enterprise-installer.sh
+bash -x elastic-cloud-enterprise-installer.sh --host-storage-path /mnt/data --public-host-name $(hostname) --host-ip $(hostname -i) --debug
+
 ```
