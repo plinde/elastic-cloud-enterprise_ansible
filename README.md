@@ -42,8 +42,8 @@ docker save docker.elastic.co/cloud-enterprise/elastic-cloud-enterprise:1.0.0-al
 
 docker load --input docker.elastic.co_cloud-enterprise_elastic-cloud-enterprise:1.0.0-alpha4.tar
 
-
+export PUBLIC_IP=$(ip address show  enp0s8 | grep 'inet ' | sed -e 's/^.*inet //' -e 's/\/.*$//')
 wget https://download.elasticsearch.org/cloud/elastic-cloud-enterprise-installer.sh
-bash -x elastic-cloud-enterprise-installer.sh --host-storage-path /mnt/data --public-host-name $(hostname) --host-ip $(hostname -i) --debug
+bash -x elastic-cloud-enterprise-installer.sh --host-storage-path /mnt/data --public-host-name ${PUBLIC_IP} --host-ip ${PUBLIC_IP} --debug
 
 ```

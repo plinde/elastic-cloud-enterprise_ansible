@@ -4,6 +4,11 @@ Vagrant.configure("2") do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.memory = "8192"
   end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    sudo yum makecache
+  SHELL
+
   config.persistent_storage.enabled = true
   config.persistent_storage.location = "./data-volume.vdi"
   config.persistent_storage.size = 5000
