@@ -7,14 +7,13 @@
     ece_user: "elastic"
 
   tasks:
-  - name: yum install xfsprogs kernel
-    yum:
+  - name: apt install linux-generic-lts-xenial xfsprogs 
+    apt:
       name={{item}}
       state=latest
     with_items:
-     - kernel
+     - linux-generic-lts-xenial
      - xfsprogs
-     - yum-plugin-versionlock
 
   - name: create "{{ ece_user }}" user
     group: name="elastic" state="present"
@@ -42,8 +41,8 @@
       line: 'GRUB_CMDLINE_LINUX="quiet splash cgroup_enable=memory cgroup.memory=nokmem swapaccount=1"'
     register: grubfile
 
-  - name: grub2-mkconfig if grubfile has changed
-    command: /usr/sbin/grub2-mkconfig -o /boot/grub2/grub.cfg
+  - name: grub-mkconfig if grubfile has changed
+    command: /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
     when: grubfile|changed
 
   ### disable ipv6
@@ -105,24 +104,25 @@
        - soft
        - hard
 
-  - name: enable docker repo via yum
-    yum_repository:
-      name: docker-repo
-      description: "Docker Repo for RHEL7"
-      baseurl: https://yum.dockerproject.org/repo/main/centos/7
-      enabled: yes
-      gpgcheck: yes
-      gpgkey: https://yum.dockerproject.org/gpg
+  - name: enable docker repo
+    apt_repository:
+      repo: deb https://apt.dockerproject.org/repo ubuntu-xenial main
+      state: present
+      codename: yes
+      update_cache: yes
+      validate_certs: true
 
   # install 1.11 as required by ECE
-  - name: yum install docker-engine-1.11.2
-    yum:
-      name=docker-engine-1.11.2
+  - name: apt-get install docker-engine=1.11*
+    apt:
+      name=docker-engine=1.11*
       state=installed
+      allow_unauthenticated=yes
 
   # pin the docker-engine version to 1.11
-  - name: yum version lock
-    command: yum versionlock docker-engine
+  - dpkg_selections:
+      name: docker-engine
+      selection: hold
 
   # add our functional user to the docker group
   - name: gpasswd -a ${USER} {{ add_to_group}}
@@ -168,7 +168,7 @@
   # - name: run vector container
   #   command: docker run -d --restart always --name vector -p 19999:80 netflixoss/vector:latest
 
-  - name: disable firewalld as per https://discuss.elastic.co/t/important-the-firewalld-service-causes-installation-issues-on-centos-rhel/92508
-    command: systemctl disable firewalld 
+  # - name: disable firewalld as per https://discuss.elastic.co/t/important-the-firewalld-service-causes-installation-issues-on-centos-rhel/92508
+  #   command: systemctl disable firewalld 
 
 
