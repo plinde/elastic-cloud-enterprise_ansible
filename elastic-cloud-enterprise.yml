@@ -3,6 +3,9 @@
   gather_facts: no
   become: true
 
+  vars:
+    ece_user: "elastic"
+
   tasks:
   - name: yum install xfsprogs kernel
     yum:
@@ -13,13 +16,13 @@
      - xfsprogs
      - yum-plugin-versionlock
 
-  - name: create "{{ create_user }}" user
+  - name: create "{{ ece_user }}" user
     group: name="elastic" state="present"
 
-  - name: create "{{ create_user }}" user
+  - name: create "{{ ece_user }}" user
     user: name="elastic" shell=/bin/bash group="elastic"
 
-  ### volume mounting is handled by Vagrantfile
+  ## volume mounting is handled by Vagrantfile
   # - name: mkfs.xfs /dev/sdb1
   #   filesystem: fstype=xfs dev=/dev/sdb1
 
@@ -36,8 +39,7 @@
     lineinfile:
       dest: /etc/default/grub
       regexp: "^GRUB_CMDLINE_LINUX="
-      # line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash video.use_native_backlight=1"'
-      line: 'GRUB_CMDLINE_LINUX="rd.lvm.lv=centos/root rd.lvm.lv=centos/swap crashkernel=auto rhgb quiet cgroup_enable=memory swapaccount=1"'
+      line: 'GRUB_CMDLINE_LINUX="quiet splash cgroup_enable=memory cgroup.memory=nokmem swapaccount=1"'
     register: grubfile
 
   - name: grub2-mkconfig if grubfile has changed
@@ -103,7 +105,6 @@
        - soft
        - hard
 
-### specifying a 'local' yum mirror would be handy here
   - name: enable docker repo via yum
     yum_repository:
       name: docker-repo
@@ -113,17 +114,17 @@
       gpgcheck: yes
       gpgkey: https://yum.dockerproject.org/gpg
 
-  ### install 1.11 as required by ECE
+  # install 1.11 as required by ECE
   - name: yum install docker-engine-1.11.2
     yum:
       name=docker-engine-1.11.2
       state=installed
 
-  ### pin the docker-engine version to 1.11
+  # pin the docker-engine version to 1.11
   - name: yum version lock
     command: yum versionlock docker-engine
 
-  ### add our functional user to the docker group
+  # add our functional user to the docker group
   - name: gpasswd -a ${USER} {{ add_to_group}}
     user: name=elastic groups=docker append=yes
 
@@ -139,20 +140,33 @@
   #     state: present
   #     backup: yes
 
+  ## Set docker storage driver and networking bind IP
+  - name: Docker settings
+    lineinfile:
+      dest: /lib/systemd/system/docker.service
+      regexp: 'ExecStart=/usr/bin/docker daemon'
+      #line: 'ExecStart=/usr/bin/docker daemon -H unix:///run/docker.sock -g /mnt/data/docker --storage-driver=aufs --bip=172.17.42.1/16 --raw-logs'
+      line: 'ExecStart=/usr/bin/docker daemon -H unix:///run/docker.sock -g /mnt/data/docker --bip=172.17.42.1/16 --raw-logs'
+      state: present
+      backup: yes
+
+  - name: "install 700 /mnt/data"
+    shell: "install -d -m 0700 -o {{ece_user}} -g {{ece_user}} /mnt/data"
+
   - name: service docker enabled
     service: name=docker enabled=yes
 
   - name: service docker restart
     service: name=docker state=started enabled=yes daemon_reload=yes
 
-  - name: docker run hello-world
-    command: docker run hello-world
+  # - name: docker run hello-world
+  #   command: docker run hello-world
 
-  - name: install and run pcp for vector
-    command: yum install pcp pcp-webapp-vector pcp-webapi -y && chkconfig pmcd on && service pmcd start && chkconfig pmlogger on && service pmlogger start && systemctl start pmcd pmwebd && systemctl enable pmcd pmwebd
+  # - name: install and run pcp for vector
+  #   command: yum install pcp pcp-webapp-vector pcp-webapi -y && chkconfig pmcd on && service pmcd start && chkconfig pmlogger on && service pmlogger start && systemctl start pmcd pmwebd && systemctl enable pmcd pmwebd
 
-  - name: run vector container
-    command: docker run -d --restart always --name vector -p 19999:80 netflixoss/vector:latest
+  # - name: run vector container
+  #   command: docker run -d --restart always --name vector -p 19999:80 netflixoss/vector:latest
 
   - name: disable firewalld as per https://discuss.elastic.co/t/important-the-firewalld-service-causes-installation-issues-on-centos-rhel/92508
     command: systemctl disable firewalld 
